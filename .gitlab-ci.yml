@@ -1,0 +1,77 @@
+image: python:3.11-slim
+
+stages:
+  - lint
+  - test
+  - sca
+  - sast
+  - secret
+
+before_script:
+  - pip install --upgrade pip
+  - echo "Contents of ci-requirements.txt before install:"
+  - cat ci-requirements.txt # Debugging aid
+  - pip install -r ci-requirements.txt # Install application dependencies
+
+flake8_check:
+  stage: lint
+  script:
+    - echo "Running Flake8..."
+    - flake8 .
+  allow_failure: false # The pipeline will fail if Flake8 finds issues
+
+pytest_run:
+  stage: test
+  variables:
+    GITLAB_CLIENT_ID: "test_id"
+    GITLAB_CLIENT_SECRET: "test_secret"
+    GITLAB_REDIRECT_URI: "http://localhost"
+    GITLAB_TOKEN_URL: "https://gitlab.com/oauth/token"
+    GITLAB_USER_API_URL: "https://gitlab.com/api/v4/user"
+    JWT_SECRET: "shut_its_a_secret"
+    DATABASE_URL: "sqlite://"
+  script:
+    - echo "Running Pytest..."
+    - pytest --cov=. --cov-report=term-missing --cov-fail-under=85
+  allow_failure: false # The pipeline will fail if any tests fail
+
+pip_audit:
+  stage: sca
+  script:
+    - echo "Running pip-audit"
+    - pip-audit -r requirements.txt
+  allow_failure: false # The pipeline will fail if any tests fail
+
+bandit:
+  stage: sast
+  script:
+    - echo "Running bandit"
+    - bandit -r .
+  allow_failure: false
+
+gitleaks_scan:
+  stage: secret
+  image: docker:latest
+  before_script: []
+  services:
+    - docker:dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375/
+    DOCKER_TLS_CERTDIR: ""
+  script:
+    - echo "Running Gitleaks"
+    - cd ..
+    - docker run --rm -v "$PWD/devsecops-hash-demo-api:/devsecops-hash-demo-api" ghcr.io/gitleaks/gitleaks:latest dir /devsecops-hash-demo-api/ -v --exit-code 1
+  allow_failure: false
+
+trufflehog_scan:
+  stage: secret
+  image: docker:latest
+  before_script: []
+  services:
+    - docker:dind
+  script:
+    - echo "Running TruffleHog"
+    - cd ..
+    - docker run --rm -v "$PWD/devsecops-hash-demo-api:/devsecops-hash-demo-api" trufflesecurity/trufflehog:latest filesystem /devsecops-hash-demo-api/ --include-detectors="all" --exclude-paths="/devsecops-hash-demo-api/.trufflehog"
+  allow_failure: false
