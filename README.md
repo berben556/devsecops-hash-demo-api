@@ -61,10 +61,22 @@ A .venv is recommended, every library are in the 'requirements.txt'
 
 ## Running the Application
 
+### Locally
+
 To run the FastAPI application locally using Uvicorn:
 ```bash
   uvicorn main:app --reload
 ```
+
+### Docker 
+```bash
+  docker build -t devsecop .
+```
+
+```bash
+  docker run -p 8000:8000 devsecop:latest
+```
+
 
 The application will typically be available at http://127.0.0.1:8000. 
 

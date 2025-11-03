@@ -27,6 +27,7 @@ htmlcov/
 venv/
 .venv/
 .ci/
+.ci-venv/
 env/
 ENV/
 env.bak/

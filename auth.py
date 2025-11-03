@@ -22,7 +22,9 @@ JWT_ALGORITHM = "HS256"
 GITLAB_TOKEN_URL = config("GITLAB_TOKEN_URL")
 GITLAB_USER_API_URL = config("GITLAB_USER_API_URL")
 
-security = HTTPBearer()
+APP_ENV = os.getenv("APP_ENV", "dev")
+
+security = HTTPBearer(auto_error=False)
 
 
 @router.get("/auth/gitlab/url")
@@ -106,6 +108,9 @@ def generate_jwt_token(user: User) -> str:
 
 
 def verify_jwt(credentials: HTTPAuthorizationCredentials = Depends(security)) -> None:
+    if APP_ENV == "dev":
+        return # Bypass de la sécurité en cas d'environnement de dev
+    
     token = credentials.credentials
     try:
         jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
