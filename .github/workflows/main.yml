@@ -1,0 +1,124 @@
+name: DevSecOps Demo 
+
+on:
+  push:
+    branches:
+      - master
+      - dev
+  pull_request:
+
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r ci-requirements.txt
+
+      - name: Run Flake8
+        run: flake8 .
+
+  tests:
+    runs-on: ubuntu-latest
+    needs: lint
+    env:
+      GITLAB_CLIENT_ID: "test_id"
+      GITLAB_CLIENT_SECRET: "test_secret"
+      GITLAB_REDIRECT_URI: "http://localhost"
+      GITLAB_TOKEN_URL: "https://gitlab.com/oauth/token"
+      GITLAB_USER_API_URL: "https://gitlab.com/api/v4/user"
+      JWT_SECRET: "shut_its_a_secret"
+      DATABASE_URL: "sqlite://"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r ci-requirements.txt
+
+      - name: Run pytest
+        run: pytest --cov=. --cov-report=term-missing --cov-fail-under=85
+
+  sca:
+    runs-on: ubuntu-latest
+    needs: tests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r ci-requirements.txt
+
+      - name: Run pip-audit
+        run: pip-audit -r requirements.txt
+
+  sast:
+    runs-on: ubuntu-latest
+    needs: sca
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r ci-requirements.txt
+
+      - name: Run bandit
+        run: bandit -r .
+
+  gitleaks:
+    runs-on: ubuntu-latest
+    needs: sast
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Gitleaks (Docker)
+        run: |
+          cd ..
+          docker run --rm -v "$PWD/devsecops-hash-demo-api:/devsecops-hash-demo-api" \
+          ghcr.io/gitleaks/gitleaks:latest dir /devsecops-hash-demo-api/ -v --exit-code 1
+
+  trufflehog:
+    runs-on: ubuntu-latest
+    needs: gitleaks
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run TruffleHog (Docker)
+        run: |
+          cd ..
+          docker run --rm -v "$PWD/devsecops-hash-demo-api:/devsecops-hash-demo-api" \
+          trufflesecurity/trufflehog:latest filesystem /devsecops-hash-demo-api/ \
+          --include-detectors="all" --exclude-paths="/devsecops-hash-demo-api/.trufflehog"
