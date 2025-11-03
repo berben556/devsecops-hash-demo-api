@@ -2,12 +2,35 @@
 
 ## Description
 
-This project is a school project aiming to build a hashing utility with all the developping, testing and production pipeline required for secured projects. 
-It implements :
-- CI pipeline composed of lint verification, unit tests with 85% coverage limitation, SCA, SAST and secret checking.
-- Oauth2 and jwt tokens for authentication *(Using Gitlab Oauth2 because the project was originaly on gitlab)*.
+This project is a secure Hashing & Encoding REST API designed with a full DevSecOps pipeline and production-grade security practices.
+It includes automated security controls, OAuth2 authentication, JWT-based session management, software supply-chain scanning, static code analysis, and secret detection.
+The objective was to demonstrate how real-world security standards can be applied even in a small API: CI/CD enforcement, dependency scanning, unit testing with coverage thresholds, rate limiting, and secure database interactions.
 
-I added a Rate Limiter using slowapi library and a new endpoint for caesar encoding and decoding.
+## Security highlights
+- OAuth2 (GitLab) + JWT authentication
+Provides secure, stateless user identification without storing sessions on the server.
+
+- Rate limiting on every API endpoint
+Protects against brute-force attacks and basic DoS attempts on hashing operations.
+
+- SAST, SCA and secret-scanning integrated into CI/CD
+  - bandit → static analysis of Python code
+  - pip-audit → dependency vulnerability scanning
+  - gitleaks & truffleHog → secret detection
+
+- 85% minimum test coverage enforced : If coverage drops below threshold, pipeline fails → security and quality gate
+
+- Secure database handling with SQLModel ORM
+    - Parameterized queries
+    - Auto-escaping
+    - Eliminates risk of SQL injection
+
+- Separated CI dependencies vs runtime dependencies
+Reduces attack surface and avoids shipping heavy security tooling inside production containers.
+
+- .env file required
+Ensures credentials, OAuth2 secrets, and DB strings never appear in code or Git history.
+
 
 ## Stack
 
@@ -26,7 +49,7 @@ This project is built using the following technologies and tools:
 - pipaudit — Software Composition Analysis, checks Python dependencies for known vulnerabilities.
 - truffleHog — Tool to detect hardcoded secrets in the codebase.
 - gitleaks — Secret scanning tool for Git repositories.
-- Gitlab Oauth2 — Secret scanning tool for Git repositories.
+- Gitlab Oauth2
 
 ## Prerequisites
 
@@ -70,11 +93,11 @@ To run the FastAPI application locally using Uvicorn:
 
 ### Docker 
 ```bash
-  docker build -t devsecop .
+  docker build -t devsecops .
 ```
 
 ```bash
-  docker run -p 8000:8000 devsecop:latest
+  docker run -p 8000:8000 devsecops
 ```
 
 
@@ -183,7 +206,7 @@ You must run the following commands outside the project directory so don't forge
 in the codebase. It helps identify secrets that may not follow predictable patterns.
 
     ```bash
-      docker run --rm -v "$PWD/hash-encoder-back-end:/hash-encoder-back-end" trufflesecurity/trufflehog:latest filesystem /hash-encoder-back-end/ --include-detectors="all" --exclude-paths="/hash-encoder-back-end/.trufflehog"
+      docker run --rm -v "$PWD/devsecops-hash-demo-api:/devsecops-hash-demo-api" trufflesecurity/trufflehog:latest filesystem /devsecops-hash-demo-api/ --include-detectors="all" --exclude-paths="/devsecops-hash-demo-api/.trufflehog"
     ```
 
 
@@ -192,7 +215,7 @@ in the codebase. It helps identify secrets that may not follow predictable patte
 using a broad set of predefined and custom regex rules. 
 
     ```bash
-      docker run --rm -v "$PWD/hash-encoder-back-end:/hash-encoder-back-end" ghcr.io/gitleaks/gitleaks:latest dir /hash-encoder-back-end/ -v --exit-code 1
+      docker run --rm -v "$PWD/devsecops-hash-demo-api:/devsecops-hash-demo-api" ghcr.io/gitleaks/gitleaks:latest dir /devsecops-hash-demo-api/ -v --exit-code 1
     ```
 
 

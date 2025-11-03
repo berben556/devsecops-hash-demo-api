@@ -3,7 +3,8 @@ import requests
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette.config import Config
-from jose import jwt, JWTError
+import jwt
+from jwt.exceptions import InvalidTokenError
 import secrets
 from database import get_user_by_gitlab_id, create_user, User
 
@@ -21,8 +22,6 @@ JWT_ALGORITHM = "HS256"
 
 GITLAB_TOKEN_URL = config("GITLAB_TOKEN_URL")
 GITLAB_USER_API_URL = config("GITLAB_USER_API_URL")
-
-APP_ENV = os.getenv("APP_ENV", "dev")
 
 security = HTTPBearer(auto_error=False)
 
@@ -108,11 +107,8 @@ def generate_jwt_token(user: User) -> str:
 
 
 def verify_jwt(credentials: HTTPAuthorizationCredentials = Depends(security)) -> None:
-    if APP_ENV == "dev":
-        return # Bypass de la sécurité en cas d'environnement de dev
-    
     token = credentials.credentials
     try:
         jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-    except JWTError:
+    except InvalidTokenError:
         raise HTTPException(status_code=403, detail="Token invalide ou manquant")
